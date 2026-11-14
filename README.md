@@ -208,7 +208,8 @@ python -m skill.cli selftest    # 41 条单元测试
 只需要 **Python 3.11+**，零第三方依赖。配置用内置 `tomllib` 解析，
 测试用内置 `unittest` —— 这样在任何一台没网、没装 pip 包的机器上都能验证。
 
-接真实环境时再看 `docs/` 里的说明（插件安装、扫码、额度）。
+接真实环境时的插件安装、扫码、额度设置，见 [`docs/risk.md`](docs/risk.md) 的灰度手册
+与 [`workflow/comment_flow.md`](workflow/comment_flow.md) 的决策链说明。
 
 ---
 
