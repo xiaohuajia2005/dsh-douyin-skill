@@ -1,0 +1,105 @@
+# DSH 抖音自动化 Skill · 运行配置
+#
+# 这里是唯一事实来源：改配额只改这个文件，不要再散落在代码里。
+# 每一项的取值都按"比平台默认更保守"来定，注释写明了理由。
+#
+# 解析器：Python 3.11+ 内置 tomllib，不依赖 PyYAML。
+
+[account]
+# 只允许小号。主号一旦被关联封禁，申诉几乎不可能成功。
+only_burner_account = true
+# 账号异常时的第一动作：停机。不是重试。
+stop_hours_on_captcha = 72
+
+# ─────────────────────────────────────────────
+# 观看侧：刷视频（点赞、收藏也归在这里）
+# ─────────────────────────────────────────────
+[watch]
+enabled = true
+daily_minutes = 30                  # 灰度期 30 分钟；稳定后再谈放量
+per_round_minutes = 10
+quiet_hours = ["00:00", "08:00"]
+audio_understanding = false         # 开这个要额外的 ASR，纯烧钱且对这个场景无用
+
+[interaction]
+# 点赞 / 收藏的每日上限。这两个动作比评论便宜，但也别刷得太整齐。
+like_enabled = true
+like_daily_limit = 20
+favorite_enabled = true
+favorite_daily_limit = 5
+# 只对"看完"的作品互动。没看完就点赞是机器人最典型的特征之一。
+require_watch_complete = true
+
+[comment]
+enabled = false                     # 第 1 周保持关闭，见 docs/risk.md 灰度表
+daily_limit = 2                     # 平台默认 3，往下压
+per_round_limit = 1
+max_chars = 12
+max_emoji = 1
+dedupe_same_video = true
+template_mode = true                # true = 模型只回 C01~C12 编号，省 token
+silent_token = "SKIP"
+
+# ─────────────────────────────────────────────
+# 私信：本项目的重点
+# ─────────────────────────────────────────────
+[dm]
+enabled = true
+reply_max_chars = 25
+quiet_hours = ["00:00", "08:00"]    # 这段时间有消息也不发，进待发队列
+# 命中即转人工，绝不自动回
+handoff_keywords = [
+  "合作", "报价", "价格", "广告", "投放", "代理", "商务", "推广",
+  "投诉", "退款", "维权", "律师", "举报", "媒体", "采访", "招聘",
+]
+# 回复里出现这些，直接判定为站外引流，丢弃重写。
+# 这是私信被封的第一大原因，比自动化本身更容易出事。
+never_say = [
+  "微信", "wx", "vx", "v信", "威信", "加我", "qq", "扣扣",
+  "链接", "二维码", "电话", "淘宝", "公众号", "私聊",
+]
+
+[dm.stranger]
+# ── 修复 #1 的核心参数 ──
+# 原版插件只处理"已许可会话"，陌生人的首条私信直接丢弃且不留痕。
+# 这里把"一律过滤"改成"分级准入"：能回的受控回复，不确定的进人工队列，
+# 明确垃圾的才丢。关键指标是"静默丢弃 = 0"。
+enable = true
+daily_reply_limit = 8               # 陌生人自动回复的日上限，比老会话收敛得多
+max_chars = 20                      # 陌生人回复比老会话更短（老会话 25）
+probation_ttl_minutes = 180         # 观察期时长，过期回到待复核
+# 观察期内只允许回 1 条。对方继续追问就走正常会话流程。
+
+[session]
+# ── 修复 #2 的核心参数 ──
+# 原版检测到"会话暂停"就把会话标成 paused 并永久跳过，只能重启插件。
+# 这里换成显式状态机：退避重试 + 恢复预算 + 超限停机。
+max_consecutive_failures = 3        # 连续失败几次判定为异常
+backoff_base_seconds = 30
+backoff_cap_seconds = 600
+jitter_ratio = 0.25                 # 退避抖动，避免固定节奏被识别
+max_resumes_per_window = 3          # 30 分钟内最多自动恢复 3 次
+window_minutes = 30
+halt_on_platform_pause = true        # 平台侧限流/验证码 → 直接停，不重试
+
+[recall]
+# ── 修复 #3 ──
+# 消息撤回后，待发队列里对应的回复必须失效；否则会对着空气回复。
+pending_ttl_seconds = 600
+dedupe_seconds = 86400              # 同一会话同一条消息，24h 内只回一次
+# 发送结果不明（超时/无回执）时是否重发。false = 不重发，进人工核对。
+resend_on_unknown = false
+
+[model]
+provider = "deepseek"
+# 只能用 v4 系列。deepseek-chat / deepseek-reasoner 已于 2026-07-24 弃用。
+model = "deepseek-v4-flash"
+fallback = "deepseek-v4-pro"
+max_output_tokens = 60              # 输出就是一句话，不需要更多
+temperature = 0.8
+
+[audit]
+# 所有决策落 JSONL，用于复盘和截图。不含消息正文的原文，只存哈希与判定。
+enabled = true
+dir = "var/audit"
+keep_days = 14
