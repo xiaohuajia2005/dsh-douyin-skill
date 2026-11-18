@@ -24,6 +24,7 @@ import time
 from dataclasses import dataclass, field
 
 from .config import Settings
+from .quiet import in_quiet_hours as _in_quiet_hours
 from .recall_guard import RecallGuard
 from .session_guard import SessionGuard, SessionState
 from .stranger_gate import Action, GateDecision, IncomingMessage, StrangerGate
@@ -94,21 +95,6 @@ class ReplyComposer:
         if any(w.lower() in low for w in self.settings.dm.never_say):
             return None
         return text
-
-
-def _in_quiet_hours(ts: float, span: tuple[str, str]) -> bool:
-    start, end = span
-    try:
-        sh, sm = (int(x) for x in start.split(":"))
-        eh, em = (int(x) for x in end.split(":"))
-    except (ValueError, AttributeError):
-        return False
-    cur = time.localtime(ts)
-    now_min = cur.tm_hour * 60 + cur.tm_min
-    start_min, end_min = sh * 60 + sm, eh * 60 + em
-    if start_min <= end_min:
-        return start_min <= now_min < end_min
-    return now_min >= start_min or now_min < end_min
 
 
 class DMRelay:

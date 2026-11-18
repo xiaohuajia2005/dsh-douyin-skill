@@ -9,3 +9,7 @@
 *.ico binary
 *.pdf binary
 *.mp4 binary
+
+# patch 必须逐字节保留，任何换行改写都会让 apply 偏移或失败
+*.patch -text
+

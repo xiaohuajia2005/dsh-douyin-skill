@@ -1,0 +1,21 @@
+--- a/chat-message.mjs
++++ b/chat-message.mjs
+@@ -23,12 +23,16 @@
+ // 展示时间和 DOM 选择器会变化；核对真正的消息内容及媒体资源。
+ export function messageFingerprint(message) {
+   const media=message.media;
+-  const value=[message.sender||message.direction,message.kind||'text',message.text||'',media?{
++  // 分享卡片的封面与资源引用是异步加载的，只把稳定身份算进指纹，避免正常加载被二次核对误判成“消息被改动”。
++  const mediaValue=media ? (media.type==='shared-work' ? {
++    type:media.type,videoId:media.videoId,url:media.url,isPhotoGallery:media.isPhotoGallery,
++  } : {
+     type:media.type,label:media.label,title:media.title,author:media.author,durationSeconds:media.durationSeconds,
+     videoId:media.videoId,url:media.url,isPhotoGallery:media.isPhotoGallery,
+     domain:media.domain,contentStatus:media.contentStatus,imageMd5:media.imageMd5,...(media.animatedHint ? {animatedHint:true} : {}),
+     resources:media.resources?.map(resource=>({resourceRef:resource.resourceRef,label:resource.label})),
+-  }:null];
++  }) : null;
++  const value=[message.sender||message.direction,message.kind||'text',message.text||'',mediaValue];
+   if (message.reference) value.push({ reference: { text: message.reference.text, scope: message.reference.scope } });
+   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+ }

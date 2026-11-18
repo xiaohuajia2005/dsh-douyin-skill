@@ -13,11 +13,13 @@ import random
 import subprocess
 import sys
 import unicodedata
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
 from .config import CONFIG_PATH, ROOT, load_settings
 from .pipeline import DMRelay
+from .proactive_guard import ProactiveGuard
 from .stranger_gate import IncomingMessage
 
 ACTION_LABEL = {
@@ -157,6 +159,59 @@ def run_demo() -> int:
     return 0 if silent == 0 else 1
 
 
+PROACTIVE_SCENARIOS = [
+    dict(label="深夜想开口", conv="c_0803", permitted=True, speaker="them", t=(3, 30, 0), after=None),
+    dict(label="对方最后一条没回", conv="c_0801", permitted=True, speaker="them", t=(9, 0, 0), after="commit"),
+    dict(label="一小时后想再开口", conv="c_0801", permitted=True, speaker="me", t=(10, 0, 0), after=None),
+    dict(label="冷却过了，仍没回", conv="c_0801", permitted=True, speaker="them", t=(15, 30, 0), after="commit"),
+    dict(label="第三次想开口", conv="c_0801", permitted=True, speaker="them", t=(16, 0, 0), after=None),
+    dict(label="想对陌生人主动", conv="c_9001", permitted=False, speaker="them", t=(16, 5, 0), after=None),
+    dict(label="对方最后一条是我说的", conv="c_0802", permitted=True, speaker="me", t=(17, 0, 0), after="commit"),
+    dict(label="当天第四次", conv="c_0804", permitted=True, speaker="them", t=(17, 30, 0), after=None),
+]
+
+
+def run_proactive() -> int:
+    settings = load_settings()
+    params = replace(settings.proactive, enabled=True)
+    guard = ProactiveGuard(params)
+
+    print()
+    print("主动开口护栏 · 演示（配置里 enabled=false，本演示临时开启）")
+    print(f"参数：日上限 {params.daily_limit} 次 · 同会话冷却 {params.per_conversation_cooldown_minutes} 分钟"
+          f" · 连续 {params.max_unanswered} 次未回应即停 · 仅限许可会话")
+    print("─" * 105)
+    print(_pad("序", 4) + " " + _pad("时间", 6) + " " + _pad("会话", 9) + " " + _pad("情形", 22)
+          + " " + _pad("判定", 6) + " " + _pad("类型", 14) + " 说明")
+    print("─" * 105)
+
+    counts = {"allow": 0, "defer": 0, "block": 0}
+    for i, sc in enumerate(PROACTIVE_SCENARIOS, 1):
+        ts = _ts(sc["t"])
+        plan = guard.plan(
+            sc["conv"], now=ts, permitted=sc["permitted"], last_speaker=sc["speaker"]
+        )
+        counts[plan.verdict.value] += 1
+        hh, mm, _ = sc["t"]
+        print(_pad(i, 4) + " " + _pad(f"{hh:02d}:{mm:02d}", 6) + " " + _pad(sc["conv"], 9) + " "
+              + _pad(sc["label"], 22) + " "
+              + _pad({"allow": "允许", "defer": "延后", "block": "禁止"}[plan.verdict.value], 6) + " "
+              + _pad(plan.kind.value, 14) + " " + _cut(plan.reason, 38))
+
+        if sc["after"] == "commit" and plan.allowed:
+            guard.commit(sc["conv"], ts)
+        elif sc["after"] == "respond":
+            guard.record_response(sc["conv"])
+
+    print("─" * 105)
+    print(f"今日已开口 {guard.used_today(_ts((18, 0, 0)))} 次 · "
+          f"允许 {counts['allow']} / 延后 {counts['defer']} / 禁止 {counts['block']}")
+    print()
+    print("说明：『延后』会进待发队列，『禁止』写审计日志。没有任何一种情况是静默丢弃。")
+    print()
+    return 0
+
+
 def run_doctor() -> int:
     print()
     print("环境自检")
@@ -200,11 +255,13 @@ def run_selftest() -> int:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="skill", description="DSH 抖音自动化 Skill")
     p.add_argument("command", nargs="?", default="demo",
-                   choices=["demo", "doctor", "selftest"], help="默认 demo")
+                   choices=["demo", "proactive", "doctor", "selftest"], help="默认 demo")
     args = p.parse_args(argv)
 
     if args.command == "demo":
         return run_demo()
+    if args.command == "proactive":
+        return run_proactive()
     if args.command == "doctor":
         return run_doctor()
     return run_selftest()

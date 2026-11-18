@@ -16,6 +16,7 @@ __all__ = [
     "StrangerGate",
     "SessionGuard",
     "RecallGuard",
+    "ProactiveGuard",
 ]
 
 
@@ -41,4 +42,8 @@ def __getattr__(name: str):
         from .recall_guard import RecallGuard
 
         return RecallGuard
+    if name == "ProactiveGuard":
+        from .proactive_guard import ProactiveGuard
+
+        return ProactiveGuard
     raise AttributeError(name)

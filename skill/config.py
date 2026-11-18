@@ -86,6 +86,18 @@ class DMReplyParams:
 
 
 @dataclass(frozen=True)
+class ProactiveParams:
+    """主动开口护栏参数（对应本地二次开发 P2）。默认关闭。"""
+
+    enabled: bool = False
+    daily_limit: int = 3
+    per_conversation_cooldown_minutes: int = 360
+    max_unanswered: int = 2
+    quiet_hours: tuple[str, str] = ("00:00", "08:00")
+    only_permitted: bool = True
+
+
+@dataclass(frozen=True)
 class InteractionParams:
     like_enabled: bool = True
     like_daily_limit: int = 20
@@ -110,6 +122,7 @@ class Settings:
     session: SessionParams = field(default_factory=SessionParams)
     recall: RecallParams = field(default_factory=RecallParams)
     dm: DMReplyParams = field(default_factory=DMReplyParams)
+    proactive: ProactiveParams = field(default_factory=ProactiveParams)
     interaction: InteractionParams = field(default_factory=InteractionParams)
     comment: CommentParams = field(default_factory=CommentParams)
     model: str = "deepseek-v4-flash"
@@ -125,6 +138,8 @@ class Settings:
             "恢复预算(次/窗口)": self.session.max_resumes_per_window,
             "退避上限(秒)": int(self.session.backoff_cap_seconds),
             "撤回待发TTL(秒)": int(self.recall.pending_ttl_seconds),
+            "主动开口": "开启" if self.proactive.enabled else "关闭",
+            "主动开口日限": self.proactive.daily_limit,
             "评论日上限": self.comment.daily_limit,
             "点赞日上限": self.interaction.like_daily_limit,
             "模型": self.model,
@@ -172,6 +187,17 @@ def load_settings(path: Path | str | None = None) -> Settings:
         never_say=_tuple_str(_pick(raw, "dm.never_say", None), DEFAULT_NEVER_SAY),
     )
 
+    proactive = ProactiveParams(
+        enabled=bool(_pick(raw, "dm.proactive.enabled", False)),
+        daily_limit=int(_pick(raw, "dm.proactive.daily_limit", 3)),
+        per_conversation_cooldown_minutes=int(
+            _pick(raw, "dm.proactive.per_conversation_cooldown_minutes", 360)
+        ),
+        max_unanswered=int(_pick(raw, "dm.proactive.max_unanswered", 2)),
+        quiet_hours=tuple(_pick(raw, "dm.proactive.quiet_hours", ["00:00", "08:00"])),
+        only_permitted=bool(_pick(raw, "dm.proactive.only_permitted", True)),
+    )
+
     interaction = InteractionParams(
         like_enabled=bool(_pick(raw, "interaction.like_enabled", True)),
         like_daily_limit=int(_pick(raw, "interaction.like_daily_limit", 20)),
@@ -194,6 +220,7 @@ def load_settings(path: Path | str | None = None) -> Settings:
         session=session,
         recall=recall,
         dm=dm,
+        proactive=proactive,
         interaction=interaction,
         comment=comment,
         model=str(_pick(raw, "model.model", "deepseek-v4-flash")),

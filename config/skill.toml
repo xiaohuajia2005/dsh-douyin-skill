@@ -70,6 +70,19 @@ max_chars = 20                      # 陌生人回复比老会话更短（老会
 probation_ttl_minutes = 180         # 观察期时长，过期回到待复核
 # 观察期内只允许回 1 条。对方继续追问就走正常会话流程。
 
+[dm.proactive]
+# ── 本地二次开发 P2 的护栏 ──
+# 插件侧新增了 proactiveKind（reply-pending / greet），解决"接话别做成另起话题"。
+# 但"什么时候根本不该开口"不在插件里，在这里。
+# 主动私信是整套能力中风控最重的动作：单向发、没有"对方先开口"的授权，
+# 被举报概率比回复高一个量级。所以默认关闭。
+enabled = false
+daily_limit = 3                     # 全账号每日主动开口上限
+per_conversation_cooldown_minutes = 360   # 同一会话两次主动至少间隔 6 小时
+max_unanswered = 2                  # 连续 2 次主动没得到回应 → 对该会话停止主动
+only_permitted = true               # 只对许可会话开口；对陌生人主动=骚扰
+quiet_hours = ["00:00", "08:00"]
+
 [session]
 # ── 修复 #2 的核心参数 ──
 # 原版检测到"会话暂停"就把会话标成 paused 并永久跳过，只能重启插件。
