@@ -9,7 +9,7 @@
 ![python](https://img.shields.io/badge/python-3.11%2B-informational)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-> 基线：`dsh-douyin-browser-local` **1.4.6** + 本地二次开发（5 处，diff 见 [`patches/`](patches/)）。
+> 基线：`dsh-douyin-browser-local` **1.4.6** + 本地二次开发（5 处，diff 见 [`patches/README.md`](patches/README.md)）。
 > 上游 1.4.7 已于 2026-11-12 发布，本项目**尚未 rebase**，差异对照见 [`docs/patches.md`](docs/patches.md)。
 
 ---
